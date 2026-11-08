@@ -1,0 +1,20 @@
+# Payroll loosened to cut step-up prompts: day-long MFA, no step-up for writes, no hours window.
+# The CI gate must fail on this overlay, because the 03:10 payroll write (P9) is allowed.
+app: payroll
+name: Payroll
+sensitivity: critical
+owner: hr
+allow_groups: [payroll-admins]
+deny_groups: [contractors]
+device:
+  min_trust: high
+risk:
+  step_up_above: 20
+  deny_above: 40
+mfa:
+  max_age_minutes: 1440
+location:
+  allowed_countries: [US, CA, GB, DE, IE, IN, PT]
+session:
+  lifetime_minutes: 480
+  bind_to_device: true

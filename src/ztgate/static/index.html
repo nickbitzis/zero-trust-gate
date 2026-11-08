@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zero Trust Gate</title>
+<style>
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --text: #1c2330; --muted: #5d6878; --border: #dde2e9;
+  --track: #e8ebf0; --accent: #2f6fdb; --good: #11804f; --good-soft: #e3f5ec;
+  --warn: #8a5a00; --warn-soft: #fff4dc; --bad: #b42318; --bad-soft: #fde8e6;
+  --crit: #8f1d5c; --crit-soft: #fbe4f0; --add: #e3f5ec; --del: #fde8e6;
+  --radius: 10px; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #11151c; --panel: #181e27; --text: #e6eaf0; --muted: #9aa5b5; --border: #2a3340;
+    --track: #232b37; --accent: #6c9cf0; --good: #4ccb8f; --good-soft: #15302a;
+    --warn: #f3c46b; --warn-soft: #3a2e14; --bad: #ff8a7a; --bad-soft: #3b1d1b;
+    --crit: #ff8fc8; --crit-soft: #3c1a2d; --add: #15302a; --del: #3b1d1b;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { overflow-x: hidden; }
+body { margin: 0; background: var(--bg); color: var(--text); font-size: 14px; }
+a { color: var(--accent); }
+header { padding: 14px 24px; display: flex; align-items: center; gap: 8px 18px; flex-wrap: wrap; border-bottom: 1px solid var(--border); background: var(--panel); }
+h1 { font-size: 18px; margin: 0; }
+nav { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+nav a { color: var(--muted); text-decoration: none; font-weight: 600; }
+nav a.on { color: var(--accent); }
+h2 { font-size: 13px; margin: 0 0 10px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+h3 { margin: 0 0 6px; font-size: 16px; overflow-wrap: anywhere; }
+.muted { color: var(--muted); }
+main { padding: 16px 24px 32px; display: grid; gap: 16px; grid-template-columns: repeat(12, minmax(0, 1fr)); max-width: 1500px; }
+.panel { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; min-width: 0; }
+.c12 { grid-column: span 12; } .c8 { grid-column: span 8; } .c7 { grid-column: span 7; } .c5 { grid-column: span 5; } .c6 { grid-column: span 6; } .c4 { grid-column: span 4; }
+@media (max-width: 1000px) { .c8, .c7, .c6, .c5, .c4 { grid-column: span 12; } main { padding: 12px 16px; } header { padding: 12px 16px; } }
+.kpis { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 140px), 1fr)); }
+.kpi .v { font-size: 26px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.kpi .l { color: var(--muted); margin-top: 2px; font-size: 13px; }
+.kpi.critical .v { color: var(--crit); } .kpi.high .v { color: var(--bad); } .kpi.medium .v { color: var(--warn); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 6px 8px; border-top: 1px solid var(--border); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; border-top: 0; white-space: nowrap; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.wrap { overflow-wrap: anywhere; }
+tr.click { cursor: pointer; } tr.click:hover td { background: var(--track); }
+.chip { font-size: 12px; padding: 1px 8px; border-radius: 10px; background: var(--track); color: var(--muted); display: inline-block; margin: 1px 2px 1px 0; white-space: nowrap; }
+.chip.bad { background: var(--bad-soft); color: var(--bad); } .chip.warn { background: var(--warn-soft); color: var(--warn); }
+.chip.good { background: var(--good-soft); color: var(--good); } .chip.acc { color: var(--accent); }
+.bar { display: inline-block; width: 70px; max-width: 30vw; height: 8px; background: var(--track); border-radius: 4px; vertical-align: middle; margin-right: 6px; overflow: hidden; }
+.bar > div { height: 100%; background: var(--good); }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; align-items: end; }
+label { display: grid; gap: 3px; color: var(--muted); font-size: 12px; min-width: 0; }
+select, input, button, textarea { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; min-width: 0; max-width: 100%; }
+textarea { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; width: 100%; }
+button { cursor: pointer; background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+button.ghost { background: transparent; color: var(--accent); }
+button.small { padding: 2px 8px; font-size: 12px; }
+.msg { padding: 8px 10px; border-radius: 6px; margin-top: 8px; overflow-wrap: anywhere; }
+.msg.err { background: var(--bad-soft); color: var(--bad); } .msg.ok { background: var(--good-soft); color: var(--good); }
+.note { font-size: 12px; color: var(--muted); margin-top: 8px; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; overflow-wrap: anywhere; }
+.form { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); align-items: end; }
+.steps { list-style: none; margin: 0; padding: 0; }
+.steps li { border-left: 3px solid var(--border); padding: 6px 0 8px 12px; margin-left: 4px; }
+.steps li.allow, .steps li.pass { border-color: var(--good); } .steps li.deny, .steps li.fail { border-color: var(--bad); }
+.steps .stage { font-weight: 650; }
+.verdict { font-size: 20px; font-weight: 700; }
+.verdict.allow { color: var(--good); } .verdict.deny { color: var(--bad); }
+.svgwrap { width: 100%; overflow: hidden; }
+svg text { fill: var(--text); font-size: 12px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); margin: 6px 0 10px; }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: middle; margin-right: 4px; border: 1px solid var(--border); }
+.empty { color: var(--muted); padding: 12px 0; }
+.facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 12px; font-size: 13px; }
+.facts dt { color: var(--muted); } .facts dd { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 700px) {
+  table.cards thead { display: none; }
+  table.cards, table.cards tbody, table.cards tr, table.cards td { display: block; width: 100%; }
+  table.cards tr { border-top: 1px solid var(--border); padding: 8px 0; }
+  table.cards td { border: 0; padding: 2px 0; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+  table.cards td.num { text-align: left; }
+  table.cards td[data-l]::before { content: attr(data-l) ": "; color: var(--muted); font-size: 12px; }
+}
+:root { --o-allow: #0ca30c; --o-allow_restricted: #2a78d6; --o-step_up: #eda100; --o-deny: #d03b3b; --grid: #e1e0d9; }
+@media (prefers-color-scheme: dark) { :root { --o-allow_restricted: #3987e5; --o-step_up: #c98500; --grid: #2c2c2a; } }
+.chip.o-allow { background: var(--good-soft); color: var(--good); }
+.chip.o-allow_restricted { background: var(--track); color: var(--accent); }
+.chip.o-step_up { background: var(--warn-soft); color: var(--warn); }
+.chip.o-deny { background: var(--bad-soft); color: var(--bad); }
+.chart { width: 100%; display: block; }
+.chart text { fill: var(--muted); font-size: 11px; }
+.chart .gl { stroke: var(--grid); stroke-width: 1; }
+.chart rect.m:hover { opacity: .8; }
+#tip { position: fixed; pointer-events: none; z-index: 10; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; font-size: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.15); display: none; max-width: 260px; }
+tr.sel td { background: var(--track); }
+.trace li.step_up { border-color: var(--o-step_up); } .trace li.restrict { border-color: var(--o-allow_restricted); } .trace li.skip { opacity: .65; }
+.verdict.allow_restricted { color: var(--accent); } .verdict.step_up { color: var(--warn); }
+.rlist { margin: 6px 0 0; padding-left: 18px; } .rlist li { margin: 2px 0; overflow-wrap: anywhere; }
+.yes { color: var(--good); font-weight: 650; } .no { color: var(--bad); font-weight: 650; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Zero Trust Gate</h1>
+  <nav>
+    <a href="#/analytics" data-r="analytics">Analytics</a>
+    <a href="#/decisions" data-r="decisions">Decision log</a>
+    <a href="#/simulate" data-r="simulate">Simulator</a>
+    <a href="#/diff" data-r="diff">Policy diff</a>
+    <a href="#/sessions" data-r="sessions">Sessions</a>
+  </nav>
+  <span class="muted" id="who"></span>
+</header>
+<main id="main"></main>
+<div id="tip"></div>
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const OUT = ["allow", "allow_restricted", "step_up", "deny"];
+const OLABEL = { allow: "allow", allow_restricted: "read-only", step_up: "step-up", deny: "deny" };
+const main = $("#main"), tip = $("#tip");
+const pct = (x, d = 1) => (x * 100).toFixed(d) + "%";
+const fmt = (n) => Number(n).toLocaleString();
+const chip = (o) => `<span class="chip o-${o}">${OLABEL[o] || esc(o)}</span>`;
+const when = (iso) => iso.replace("T", " ").slice(0, 16);
+let SUMMARY = null, APPS = null;
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, { headers: { "content-type": "application/json" }, ...opts });
+  const body = r.headers.get("content-type")?.includes("json") ? await r.json() : await r.text();
+  if (!r.ok) throw new Error(body.detail || r.statusText);
+  return body;
+}
+const post = (path, data) => api(path, { method: "POST", body: JSON.stringify(data) });
+async function summary() { return SUMMARY || (SUMMARY = await api("/api/analytics")); }
+async function apps() { return APPS || (APPS = await api("/api/apps")); }
+
+// Hover tooltips for any element with data-tip.
+document.addEventListener("mousemove", (e) => {
+  const t = e.target.closest?.("[data-tip]");
+  if (!t) { tip.style.display = "none"; return; }
+  tip.innerHTML = t.dataset.tip; tip.style.display = "block";
+  const x = Math.min(e.clientX + 12, window.innerWidth - tip.offsetWidth - 8);
+  tip.style.left = Math.max(8, x) + "px"; tip.style.top = (e.clientY + 14) + "px";
+});
+
+function legend(keys) {
+  return `<div class="legend">${keys.map((k) => `<span><span class="sw" style="background:var(--o-${k})"></span>${OLABEL[k]}</span>`).join("")}</div>`;
+}
+
+// Stacked horizontal bars: one row per item, one shared x-axis.
+function hbars(rows, keys, label, { width = 640, row = 20, labelW = 150 } = {}) {
+  const max = Math.max(1, ...rows.map((r) => keys.reduce((s, k) => s + r[k], 0)));
+  const plotW = width - labelW - 50, h = rows.length * row + 24;
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(max * f));
+  let out = `<svg class="chart" viewBox="0 0 ${width} ${h}" role="img" aria-label="${esc(label)}">`;
+  ticks.forEach((t) => { const x = labelW + (t / max) * plotW; out += `<line class="gl" x1="${x}" x2="${x}" y1="0" y2="${h - 18}"/><text x="${x}" y="${h - 4}" text-anchor="middle">${fmt(t)}</text>`; });
+  rows.forEach((r, i) => {
+    const y = i * row + 3; let x = labelW;
+    out += `<text x="${labelW - 6}" y="${y + row / 2 + 1}" text-anchor="end">${esc(r.label)}</text>`;
+    const total = keys.reduce((s, k) => s + r[k], 0);
+    keys.forEach((k) => {
+      const w = (r[k] / max) * plotW;
+      if (w <= 0) return;
+      out += `<rect class="m" x="${x}" y="${y}" width="${Math.max(0, w - (w > 3 ? 2 : 0))}" height="${row - 6}" rx="2" fill="var(--o-${k})"
+        data-tip="<b>${esc(r.label)}</b><br>${OLABEL[k]}: ${fmt(r[k])} of ${fmt(total)} (${pct(r[k] / total)})"/>`;
+      x += w;
+    });
+    out += `<text x="${x + 4}" y="${y + row / 2 + 1}">${fmt(total)}</text>`;
+  });
+  return out + "</svg>";
+}
+
+// Vertical stacked bars by day.
+function vbars(rows, keys, label, { width = 640, height = 200 } = {}) {
+  const left = 40, bottom = 22, plotW = width - left - 6, plotH = height - bottom - 8;
+  const max = Math.max(1, ...rows.map((r) => keys.reduce((s, k) => s + r[k], 0)));
+  const bw = plotW / rows.length;
+  let out = `<svg class="chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(label)}">`;
+  [0, 0.5, 1].forEach((f) => { const y = 8 + plotH * (1 - f); out += `<line class="gl" x1="${left}" x2="${width}" y1="${y}" y2="${y}"/><text x="${left - 4}" y="${y + 4}" text-anchor="end">${fmt(Math.round(max * f))}</text>`; });
+  rows.forEach((r, i) => {
+    let y = 8 + plotH; const x = left + i * bw + 1;
+    const tipText = `<b>${r.day}</b><br>` + keys.map((k) => `${OLABEL[k]}: ${fmt(r[k])}`).join("<br>");
+    out += `<rect x="${x - 1}" y="8" width="${bw}" height="${plotH}" fill="transparent" data-tip="${tipText}"/>`;
+    keys.forEach((k) => {
+      const h = (r[k] / max) * plotH; if (h <= 0) return;
+      y -= h;
+      out += `<rect class="m" x="${x}" y="${y}" width="${Math.max(1, bw - 3)}" height="${Math.max(0, h - 1)}" rx="1.5" fill="var(--o-${k})" data-tip="${tipText}"/>`;
+    });
+    if (i % 5 === 0) out += `<text x="${x + bw / 2}" y="${height - 6}" text-anchor="middle">${r.day.slice(5)}</text>`;
+  });
+  return out + "</svg>";
+}
+
+// ---------- analytics ----------
+async function viewAnalytics() {
+  const s = await summary();
+  const f = s.friction;
+  const caught = s.planted.filter((p) => p.caught).length;
+  main.innerHTML = `
+  <section class="panel c12"><h2>${esc(s.company)}, 30 days to ${when(s.as_of)} UTC</h2><div class="kpis">
+    <div class="kpi"><div class="v">${fmt(s.decisions)}</div><div class="l">access decisions</div></div>
+    <div class="kpi"><div class="v ${caught === s.planted.length ? "yes" : "no"}">${caught} / ${s.planted.length}</div><div class="l">planted risky events caught</div></div>
+    <div class="kpi"><div class="v">${pct(f.false_deny_rate, 2)}</div><div class="l">false denies for legitimate users</div></div>
+    <div class="kpi"><div class="v">${pct(f.step_up_rate, 2)}</div><div class="l">legitimate requests stepped up</div></div>
+    <div class="kpi"><div class="v">${s.revocations}</div><div class="l">sessions revoked mid-flight</div></div>
+    <div class="kpi"><div class="v">${s.users}</div><div class="l">people, ${s.contractors} contractors, ${s.apps} apps</div></div>
+  </div></section>
+  <section class="panel c12"><h2>Planted risky events</h2>
+    <table class="cards"><thead><tr><th>#</th><th>Event</th><th>Decisions</th><th>Caught</th><th>Caught by</th><th>Evidence</th></tr></thead><tbody>
+    ${s.planted.map((p) => `<tr class="click" data-p="${p.id}"><td>${p.id}</td><td class="wrap"><b>${esc(p.title)}</b><div class="muted">${esc(p.detail)}</div></td>
+      <td data-l="decisions">${p.revoked !== undefined ? `${p.revoked} sessions revoked` : Object.entries(p.outcomes).map(([o, n]) => `${chip(o)} ${n}`).join(" ")}${p.stepup_failed ? `<div class="muted">step-up failed ${p.stepup_failed}</div>` : ""}</td>
+      <td data-l="caught" class="${p.caught ? "yes" : "no"}">${p.caught ? "yes" : "no"}</td>
+      <td data-l="caught by">${p.caught_by.slice(0, 3).map((c) => `<span class="chip">${esc(c)}</span>`).join("")}</td>
+      <td class="wrap muted" data-l="evidence">${esc((p.evidence || [])[0] || "")}</td></tr>`).join("")}
+    </tbody></table><div class="note">Click a row to open its decisions in the log.</div></section>
+  <section class="panel c7"><h2>Decisions by app and outcome</h2>${legend(OUT)}
+    ${hbars([...s.by_app].sort((a, b) => b.total - a.total).map((r) => ({ ...r, label: r.app })), OUT, "Decisions by app and outcome")}</section>
+  <section class="panel c5"><h2>Step-up rate by app</h2>
+    ${hbars([...s.by_app].filter((r) => r.step_up).sort((a, b) => b.step_up_rate - a.step_up_rate).slice(0, 14).map((r) => ({ label: r.app, step_up: Math.round(r.step_up_rate * 1000) / 10 })), ["step_up"], "Step-up rate by app, percent", { width: 460, labelW: 140 })}
+    <div class="note">Percent of each app's requests that asked for a fresh MFA.</div>
+    <h2 style="margin-top:18px">Friction for legitimate users</h2>
+    <dl class="facts"><dt>Legitimate, entitled requests</dt><dd>${fmt(f.legit_requests)}</dd>
+      <dt>False denies</dt><dd>${fmt(f.false_denies)} (${pct(f.false_deny_rate, 2)}), ${f.users_with_a_false_deny} people</dd>
+      <dt>Step-ups</dt><dd>${fmt(f.step_ups)}, ${fmt(f.step_up_passed)} passed</dd>
+      <dt>Read-only grants</dt><dd>${fmt(f.read_only)}</dd>
+      <dt>False denies by check</dt><dd>${Object.entries(f.false_deny_by_check).map(([k, v]) => `${esc(k)} ${v}`).join(", ")}</dd></dl>
+    <div class="note"><a href="#/decisions?legit=false_deny">Open the false denies in the log</a></div></section>
+  <section class="panel c7"><h2>Non-allow decisions per day</h2>${legend(["allow_restricted", "step_up", "deny"])}
+    ${vbars(s.daily, ["allow_restricted", "step_up", "deny"], "Non-allow decisions per day")}</section>
+  <section class="panel c5"><h2>Least-privilege recommendations</h2>
+    <table class="cards"><thead><tr><th>App</th><th>Group</th><th class="num">Members</th><th class="num">Used it</th></tr></thead><tbody>
+    ${s.least_privilege.map((r) => `<tr><td>${esc(r.app)} <span class="chip">${r.sensitivity}</span></td><td data-l="group">${esc(r.group)}</td><td class="num" data-l="members">${r.members}</td><td class="num" data-l="used it">${r.active}</td></tr>`).join("")}
+    </tbody></table><div class="note">Groups on high and critical apps where under 5% of members used the app in 30 days.</div></section>`;
+  main.querySelectorAll("tr[data-p]").forEach((tr) => tr.addEventListener("click", () => { location.hash = `#/decisions?planted=${tr.dataset.p}`; }));
+}
+
+// ---------- decision log ----------
+async function viewDecisions(params) {
+  const appList = await apps();
+  main.innerHTML = `<section class="panel c7"><h2>Decision log</h2>
+    <div class="filters">
+      <label>App<select id="fapp"><option value="">all</option>${appList.map((a) => `<option>${a.id}</option>`).join("")}</select></label>
+      <label>Outcome<select id="fout"><option value="">all</option>${OUT.map((o) => `<option value="${o}">${OLABEL[o]}</option>`).join("")}</select></label>
+      <label>Show<select id="fshow"><option value="">everything</option><option value="planted">planted events</option><option value="false_deny">false denies</option><option value="live">live requests</option></select></label>
+      <label>User<input id="fuser" placeholder="u0123" size="8"></label>
+      <label>Search<input id="fq" placeholder="ip, device, reason"></label>
+    </div><div id="dlist"></div></section>
+    <section class="panel c5" id="detail"><h2>Trace</h2><div class="empty">Pick a decision to see every check.</div></section>`;
+  if (params.app) $("#fapp").value = params.app;
+  if (params.legit === "false_deny") $("#fshow").value = "false_deny";
+  let plantedId = params.planted || "";
+  if (plantedId) $("#fshow").value = "planted";
+  const load = async () => {
+    const q = new URLSearchParams({ limit: 100 });
+    if ($("#fapp").value) q.set("app", $("#fapp").value);
+    if ($("#fout").value) q.set("outcome", $("#fout").value);
+    if ($("#fuser").value) q.set("user", $("#fuser").value.trim());
+    if ($("#fq").value) q.set("q", $("#fq").value);
+    const show = $("#fshow").value;
+    if (show === "planted") q.set("planted", plantedId || "any");
+    if (show === "false_deny") q.set("legit", "false_deny");
+    if (show === "live") q.set("source", "live");
+    const r = await api("/api/decisions?" + q);
+    $("#dlist").innerHTML = `<div class="note">${fmt(r.total)} decisions, newest first${r.total > r.items.length ? `, ${r.items.length} shown` : ""}</div>
+    <table class="cards"><thead><tr><th>Time (UTC)</th><th>User</th><th>App</th><th>Outcome</th><th>Reason</th></tr></thead><tbody>
+    ${r.items.map((d) => `<tr class="click" data-id="${d.id}"><td class="mono">${when(d.ts)}</td><td data-l="user">${esc(d.user)}${d.planted ? ` <span class="chip warn">${d.planted}</span>` : ""}</td>
+      <td data-l="app">${esc(d.app)} <span class="muted">${d.action}</span></td><td data-l="outcome">${chip(d.outcome)}${d.stepup ? ` <span class="muted">${d.stepup}</span>` : ""}</td>
+      <td class="wrap muted" data-l="reason">${esc(d.reasons[0] || "")}</td></tr>`).join("")}</tbody></table>`;
+    main.querySelectorAll("tr[data-id]").forEach((tr) => tr.addEventListener("click", () => {
+      main.querySelectorAll("tr.sel").forEach((x) => x.classList.remove("sel")); tr.classList.add("sel"); showTrace(tr.dataset.id);
+    }));
+    if (r.items[0]) showTrace(r.items[0].id);
+  };
+  ["fapp", "fout", "fshow"].forEach((id) => $("#" + id).addEventListener("change", () => { if (id === "fshow") plantedId = ""; load(); }));
+  let t; ["fq", "fuser"].forEach((id) => $("#" + id).addEventListener("input", () => { clearTimeout(t); t = setTimeout(load, 250); }));
+  load();
+}
+
+function traceHtml(d) {
+  return `<ul class="steps trace">${d.trace.map((s) => `<li class="${s.result === "pass" ? "pass" : s.result === "deny" ? "deny" : s.result}">
+    <span class="stage">${esc(s.check)}</span> <span class="chip ${s.result === "deny" ? "bad" : s.result === "pass" ? "good" : s.result === "step_up" ? "warn" : ""}">${esc(s.result)}</span>
+    <div class="muted">${esc(s.detail)}</div></li>`).join("")}</ul>`;
+}
+function riskHtml(risk) {
+  if (!risk.components.length) return `<div class="muted">Risk ${risk.score}: no risk signals.</div>`;
+  return `<div>Risk <b>${risk.score}</b> (${risk.band})</div><ul class="rlist">${risk.components.map((c) => `<li>+${c.points} ${esc(c.component)}: ${esc(c.detail)}</li>`).join("")}</ul>`;
+}
+
+async function showTrace(id) {
+  const d = await api(`/api/decisions/${id}`);
+  $("#detail").innerHTML = `<h2>Trace for decision ${d.id}</h2>
+    <div class="verdict ${d.outcome}">${OLABEL[d.outcome]}${d.stepup ? ` <span class="muted" style="font-size:14px">step-up ${d.stepup}, final ${OLABEL[d.final] || d.final}</span>` : ""}</div>
+    <dl class="facts" style="margin:10px 0"><dt>User</dt><dd>${esc(d.user_name || "")} (${esc(d.user)})</dd><dt>Request</dt><dd>${esc(d.action)} on ${esc(d.app)}</dd>
+      <dt>Device</dt><dd>${esc(d.device)}, trust ${esc(d.device_trust)}</dd><dt>From</dt><dd>${esc(d.ip)}, ${esc(d.city)} ${esc(d.country)}, ${d.inputs.local_hour.toFixed(1)}h local</dd>
+      <dt>Groups</dt><dd>${d.inputs.groups.map((g) => `<span class="chip">${esc(g)}</span>`).join("")}</dd>
+      ${d.planted ? `<dt>Planted</dt><dd>${d.planted}</dd>` : ""}${d.session ? `<dt>Session</dt><dd class="mono">${d.session}</dd>` : ""}</dl>
+    ${riskHtml(d.risk)}<h2 style="margin-top:14px">Checks, in order</h2>${traceHtml(d)}`;
+}
+
+// ---------- simulator ----------
+async function viewSimulate() {
+  const appList = await apps();
+  const cities = ["", "San Francisco", "New York", "Austin", "Toronto", "London", "Berlin", "Dublin", "Bangalore", "Lisbon", "Singapore", "Amsterdam", "Bucharest", "Jakarta", "Sao Paulo"];
+  main.innerHTML = `<section class="panel c5"><h2>Policy simulator</h2>
+    <p class="muted" style="margin-top:0">What would happen if this person asked for this app from this device and context? Nothing here changes live state.</p>
+    <form id="sim" class="form">
+      <label>User id<input name="user" value="u0408" required></label>
+      <label>App<select name="app">${appList.map((a) => `<option ${a.id === "payroll" ? "selected" : ""}>${a.id}</option>`).join("")}</select></label>
+      <label>Action<select name="action"><option>read</option><option>write</option><option>export</option><option>admin</option></select></label>
+      <label>Device<input name="device" placeholder="their laptop, or unregistered"></label>
+      <label>City (request from)<select name="city">${cities.map((c) => `<option value="${c}">${c || "home city"}</option>`).join("")}</select></label>
+      <label>IP (overrides city)<input name="ip" placeholder="198.51.100.130"></label>
+      <label>Local hour<input name="local_hour" type="number" min="0" max="23.9" step="0.25" value="11"></label>
+      <label>Minutes since MFA<input name="mfa_age_minutes" type="number" min="0" value="20"></label>
+      <label>Failed sign-ins, last hour<input name="failed_logins" type="number" min="0" value="0"></label>
+      <label>Previous sign-in city<select name="prev_city">${cities.map((c) => `<option value="${c}">${c || "none"}</option>`).join("")}</select></label>
+      <label>Minutes since then<input name="prev_minutes" type="number" min="1" value="60"></label>
+      <label>Session<select name="session"><option value="fresh">fresh sign-in</option><option value="sso">SSO token on this device</option><option value="replayed">token copied from their laptop</option></select></label>
+      <label>Patch age override (days)<input name="patch_age_days" type="number" min="0" placeholder="as inventoried"></label>
+      <label>EDR<select name="edr"><option value="">as inventoried</option><option value="false">stopped</option></select></label>
+      <button type="submit">Simulate</button>
+    </form><div id="simerr"></div></section>
+    <section class="panel c7" id="simout"><h2>Result</h2><div class="empty">Run a simulation.</div></section>`;
+  $("#sim").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = Object.fromEntries(new FormData(e.target));
+    const req = { user: f.user.trim(), app: f.app, action: f.action, local_hour: Number(f.local_hour), mfa_age_minutes: Number(f.mfa_age_minutes),
+      failed_logins: Number(f.failed_logins), session: f.session };
+    if (f.device) req.device = f.device.trim();
+    if (f.city) req.city = f.city;
+    if (f.ip) req.ip = f.ip.trim();
+    if (f.prev_city) req.previous = { city: f.prev_city, minutes_ago: Number(f.prev_minutes) };
+    const posture = {};
+    if (f.patch_age_days) posture.patch_age_days = Number(f.patch_age_days);
+    if (f.edr) posture.edr_running = false;
+    if (Object.keys(posture).length) req.posture = posture;
+    try {
+      const r = await post("/api/simulate", req);
+      $("#simerr").innerHTML = "";
+      $("#simout").innerHTML = `<h2>Result</h2><div class="verdict ${r.decision}">${OLABEL[r.decision]}${r.restrictions.length ? ` (${r.restrictions.join(", ")})` : ""}</div>
+        ${r.after_step_up ? `<div class="note">After a successful step-up: ${chip(r.after_step_up)}</div>` : ""}
+        <div class="note">Device trust <b>${r.device_trust.level}</b>; session lifetime ${r.session_lifetime_minutes} min if allowed.</div>
+        <div style="margin-top:8px">${riskHtml(r.risk)}</div><h2 style="margin-top:14px">Checks, in order</h2>${traceHtml(r)}`;
+    } catch (err) { $("#simerr").innerHTML = `<div class="msg err">${esc(err.message)}</div>`; }
+  });
+  $("#sim").requestSubmit();
+}
+
+// ---------- policy diff ----------
+async function viewDiff() {
+  const appList = await apps();
+  main.innerHTML = `<section class="panel c5"><h2>Policy diff</h2>
+    <p class="muted" style="margin-top:0">Edit a policy and replay all 30 days of that app's requests against it before rollout.</p>
+    <div class="filters"><label>App<select id="papp">${appList.map((a) => `<option ${a.id === "payroll" ? "selected" : ""}>${a.id}</option>`).join("")}</select></label>
+    <button id="preset" class="ghost" type="button">Load a risky edit</button></div>
+    <textarea id="pyaml" rows="24" spellcheck="false"></textarea>
+    <div class="filters" style="margin-top:8px"><button id="prun" type="button">Replay against this draft</button></div><div id="perr"></div></section>
+    <section class="panel c7" id="pout"><h2>What would change</h2><div class="empty">Replay a draft to see newly allowed and newly denied requests.</div></section>`;
+  const loadPolicy = async () => { $("#pyaml").value = (await api(`/api/policies/${$("#papp").value}`)).yaml; };
+  $("#papp").addEventListener("change", loadPolicy);
+  $("#preset").addEventListener("click", async () => {
+    await loadPolicy();
+    let y = $("#pyaml").value;
+    if ($("#papp").value === "payroll") y = y.replace(/hours:\n(  .*\n)+/, "").replace("max_age_minutes: 240", "max_age_minutes: 1440").replace(/step_up:\n(  .*\n)+/, "");
+    else y = y.replace(/min_trust: \w+/, "min_trust: low") + "identity:\n  require_active: false\n";
+    $("#pyaml").value = y; run();
+  });
+  const run = async () => {
+    try {
+      const d = await post("/api/diff", { yaml: $("#pyaml").value, sample: 40 });
+      $("#perr").innerHTML = "";
+      const row = (x) => `<tr class="click" data-id="${x.id}"><td class="mono">${when(x.ts)}</td><td data-l="user">${esc(x.user)}${x.planted ? ` <span class="chip warn">${x.planted}</span>` : ""}</td><td data-l="change">${chip(x.before)} to ${chip(x.after)}</td><td class="wrap muted" data-l="why">${esc((x.why || [])[0] || "")}</td></tr>`;
+      const block = (k, title) => d.samples[k].length ? `<h2 style="margin-top:14px">${title}: ${fmt(d.counts[k])} requests, ${d.users[k] || 0} people</h2>
+        <table class="cards"><thead><tr><th>Time</th><th>User</th><th>Change</th><th>Why</th></tr></thead><tbody>${d.samples[k].map(row).join("")}</tbody></table>` : "";
+      $("#pout").innerHTML = `<h2>What would change for ${esc(d.app)}</h2>
+        ${d.planted_newly_allowed.length ? `<div class="msg err">Planted risky events would be allowed: ${d.planted_newly_allowed.join(", ")}. Do not roll this out.</div>` : ""}
+        <div class="kpis" style="margin-top:8px"><div class="kpi"><div class="v">${fmt(d.requests)}</div><div class="l">past requests replayed</div></div>
+        <div class="kpi"><div class="v">${fmt(d.changed)}</div><div class="l">would change</div></div>
+        <div class="kpi"><div class="v">${fmt(d.counts.newly_allowed)}</div><div class="l">newly allowed</div></div>
+        <div class="kpi"><div class="v">${fmt(d.counts.newly_denied)}</div><div class="l">newly denied</div></div></div>
+        ${d.transitions.length ? `<table style="margin-top:10px"><thead><tr><th>Before</th><th>After</th><th class="num">Requests</th></tr></thead><tbody>${d.transitions.map((t) => `<tr><td>${chip(t.before)}</td><td>${chip(t.after)}</td><td class="num">${fmt(t.count)}</td></tr>`).join("")}</tbody></table>` : `<div class="msg ok">No past request changes outcome.</div>`}
+        ${block("newly_allowed", "Newly allowed")}${block("newly_denied", "Newly denied")}${block("newly_stepped_up", "Newly stepped up")}${block("other", "Other changes")}`;
+      $("#pout").querySelectorAll("tr[data-id]").forEach((tr) => tr.addEventListener("click", () => { location.hash = `#/decisions?id=${tr.dataset.id}`; }));
+    } catch (err) { $("#perr").innerHTML = `<div class="msg err">${esc(err.message)}</div>`; }
+  };
+  $("#prun").addEventListener("click", run);
+  await loadPolicy();
+  $("#preset").click();
+}
+
+// ---------- sessions ----------
+async function viewSessions(params) {
+  const status = params.status || "active";
+  main.innerHTML = `<section class="panel c12"><h2>Sessions</h2>
+    <div class="filters"><label>Status<select id="sst"><option value="active">active</option><option value="revoked">revoked</option><option value="expired">expired</option></select></label>
+    <label>User<input id="suser" placeholder="u0123" size="8"></label></div>
+    <div class="note">Revoked sessions include the ones continuous evaluation ended when posture or risk changed. Service time starts where the 30-day log ends.</div>
+    <div id="slist"></div></section>`;
+  $("#sst").value = status;
+  const load = async () => {
+    const q = new URLSearchParams({ status: $("#sst").value, limit: 200 });
+    if ($("#suser").value) q.set("user", $("#suser").value.trim());
+    const r = await api("/api/sessions?" + q);
+    $("#slist").innerHTML = `<div class="note">${fmt(r.total)} ${$("#sst").value} sessions at ${when(r.now)} UTC${r.total > r.items.length ? `, ${r.items.length} shown` : ""}</div>
+    <table class="cards"><thead><tr><th>Session</th><th>User</th><th>App</th><th>Device</th><th>Issued</th><th>Expires</th><th>Status</th><th></th></tr></thead><tbody>
+    ${r.items.map((s) => `<tr><td class="mono">${s.id}${s.source === "live" ? ' <span class="chip acc">live</span>' : ""}</td><td data-l="user">${esc(s.user)}</td><td data-l="app">${esc(s.app)}${s.restrictions.length ? ' <span class="chip">read-only</span>' : ""}</td>
+      <td data-l="device" class="mono">${esc(s.device)}</td><td data-l="issued" class="mono">${when(s.issued)}</td><td data-l="expires" class="mono">${when(s.expires)}</td>
+      <td data-l="status" class="wrap">${s.status === "revoked" ? `<span class="chip bad">revoked</span> <span class="muted">${esc(s.revoke_reason)}</span>` : `<span class="chip ${s.status === "active" ? "good" : ""}">${s.status}</span>`}</td>
+      <td>${s.status === "active" ? `<button class="small" data-rev="${s.id}">Revoke</button>` : ""}</td></tr>`).join("")}</tbody></table>`;
+    main.querySelectorAll("button[data-rev]").forEach((b) => b.addEventListener("click", async () => {
+      b.disabled = true; await post(`/api/sessions/${b.dataset.rev}/revoke`, { reason: "revoked from the admin UI" }); SUMMARY = null; load();
+    }));
+  };
+  $("#sst").addEventListener("change", load);
+  let t; $("#suser").addEventListener("input", () => { clearTimeout(t); t = setTimeout(load, 250); });
+  load();
+}
+
+async function route() {
+  const [path, qs] = (location.hash.slice(2) || "analytics").split("?");
+  const params = Object.fromEntries(new URLSearchParams(qs || ""));
+  document.querySelectorAll("nav a").forEach((a) => a.classList.toggle("on", a.dataset.r === path));
+  try {
+    if (path === "decisions") await viewDecisions(params);
+    else if (path === "simulate") await viewSimulate();
+    else if (path === "diff") await viewDiff();
+    else if (path === "sessions") await viewSessions(params);
+    else await viewAnalytics();
+    if (path === "decisions" && params.id) showTrace(params.id);
+  } catch (e) { main.innerHTML = `<section class="panel c12"><div class="msg err">${esc(e.message)}</div></section>`; }
+}
+api("/healthz").then((h) => { $("#who").textContent = `${h.policies} policies, ${Number(h.decisions).toLocaleString()} decisions`; });
+window.addEventListener("hashchange", route);
+route();
+</script>
+</body>
+</html>

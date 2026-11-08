@@ -1,0 +1,16 @@
+# Wiki: Company wiki and handbooks.
+app: wiki
+name: Wiki
+sensitivity: low
+owner: it
+allow_groups: [all-employees, contractors]
+device:
+  min_trust: low
+risk:
+  step_up_above: 40
+  deny_above: 70
+mfa:
+  max_age_minutes: 1440
+session:
+  lifetime_minutes: 720
+  bind_to_device: true

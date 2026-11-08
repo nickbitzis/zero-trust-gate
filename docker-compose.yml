@@ -1,0 +1,47 @@
+# Admin service (decision point and UI), the access proxy, and two demo backends.
+#   cp .env.example .env    then set ZTGATE_SIGNING_KEY
+#   docker compose up --build
+#   UI on http://localhost:8861, apps through the proxy on http://localhost:8862/wiki/ and /payroll/
+# Only the admin UI and the proxy publish ports. The backends are reachable only from inside the network.
+x-app: &app
+  build: .
+  image: zero-trust-gate:local
+  environment: &env
+    ZTGATE_SIGNING_KEY: ${ZTGATE_SIGNING_KEY:?set ZTGATE_SIGNING_KEY in .env}
+  restart: unless-stopped
+
+services:
+  admin:
+    <<: *app
+    command: ["ztgate", "serve"]
+    environment:
+      <<: *env
+      PORT: "8861"
+    ports: ["8861:8861"]
+
+  proxy:
+    <<: *app
+    command: ["ztgate", "proxy"]
+    environment:
+      <<: *env
+      PORT: "8862"
+      ZTGATE_PDP_URL: http://admin:8861
+      ZTGATE_ROUTES: wiki=http://wiki:8863,payroll=http://payroll:8864
+    ports: ["8862:8862"]
+    depends_on:
+      admin:
+        condition: service_healthy
+
+  wiki:
+    <<: *app
+    command: ["ztgate", "backend", "wiki"]
+    environment:
+      <<: *env
+      PORT: "8863"
+
+  payroll:
+    <<: *app
+    command: ["ztgate", "backend", "payroll"]
+    environment:
+      <<: *env
+      PORT: "8864"

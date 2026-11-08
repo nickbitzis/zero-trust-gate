@@ -1,0 +1,20 @@
+# Marketing analytics: Campaign and web analytics.
+app: marketing-analytics
+name: Marketing analytics
+sensitivity: medium
+owner: marketing
+allow_groups: [marketing, sales, exec]
+device:
+  min_trust: medium
+  read_only_trust: low
+risk:
+  step_up_above: 30
+  deny_above: 60
+mfa:
+  max_age_minutes: 720
+step_up:
+  actions: [export, admin]
+  mfa_max_age_minutes: 30
+session:
+  lifetime_minutes: 480
+  bind_to_device: true

@@ -1,0 +1,22 @@
+# Source code: Git hosting and code review.
+app: source-code
+name: Source code
+sensitivity: high
+owner: engineering
+allow_groups: [engineering, sre, security, data, contractors-eng, product]
+device:
+  min_trust: high
+  read_only_trust: medium
+risk:
+  step_up_above: 25
+  deny_above: 50
+mfa:
+  max_age_minutes: 480
+step_up:
+  actions: [export, admin]
+  mfa_max_age_minutes: 30
+location:
+  allowed_countries: [US, CA, GB, DE, IE, IN, PT]
+session:
+  lifetime_minutes: 240
+  bind_to_device: true

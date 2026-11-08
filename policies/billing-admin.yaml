@@ -1,0 +1,26 @@
+# Billing admin: Refunds, credits, and invoice changes.
+app: billing-admin
+name: Billing admin
+sensitivity: critical
+owner: finance
+allow_groups: [finance-approvers]
+deny_groups: [contractors]
+device:
+  min_trust: high
+risk:
+  step_up_above: 20
+  deny_above: 40
+mfa:
+  max_age_minutes: 240
+step_up:
+  actions: [write, export, admin]
+  mfa_max_age_minutes: 15
+hours:
+  start: 6
+  end: 22
+  outside: step_up
+location:
+  allowed_countries: [US, CA, GB, DE, IE, IN, PT]
+session:
+  lifetime_minutes: 60
+  bind_to_device: true
